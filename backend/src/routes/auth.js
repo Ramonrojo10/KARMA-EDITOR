@@ -48,14 +48,44 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
     console.log(`✅ User found: ${user.username} (ID: ${user.id})`);
+    console.log(`📋 Password hash from DB: ${user.password_hash}`);
+    console.log(`📋 Password hash length: ${user.password_hash?.length}`);
+    console.log(`📋 Password hash type: ${typeof user.password_hash}`);
 
     // Verify password
     console.log('🔑 Verifying password...');
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    console.log(`🔑 Password valid: ${isValidPassword}`);
+    console.log(`🔑 Input password: "${password}" (length: ${password?.length})`);
+
+    // Trim password hash in case of whitespace issues
+    const cleanHash = user.password_hash?.trim();
+
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, cleanHash);
+      console.log(`🔑 bcrypt.compare result: ${isValidPassword}`);
+    } catch (bcryptError) {
+      console.error('🔑 bcrypt.compare error:', bcryptError.message);
+    }
 
     if (!isValidPassword) {
       console.log('❌ Invalid password');
+
+      // Debug: Test bcrypt functionality
+      console.log('🔍 Debug: Testing bcrypt functionality...');
+      try {
+        const testHash = await bcrypt.hash('karma2024', 10);
+        console.log(`🔍 Fresh hash for "karma2024": ${testHash}`);
+        const testCompare = await bcrypt.compare('karma2024', testHash);
+        console.log(`🔍 Fresh hash compare result: ${testCompare}`);
+
+        // Try comparing with the expected hash
+        const expectedHash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+        const expectedCompare = await bcrypt.compare('karma2024', expectedHash);
+        console.log(`🔍 Expected hash compare result: ${expectedCompare}`);
+      } catch (debugError) {
+        console.error('🔍 Debug error:', debugError.message);
+      }
+
       return res.status(401).json({
         error: 'Authentication failed',
         message: 'Invalid username or password',
@@ -205,6 +235,79 @@ router.put('/password', authenticateToken, async (req, res) => {
     res.status(500).json({
       error: 'Server error',
       message: 'Failed to change password',
+    });
+  }
+});
+
+/**
+ * GET /api/auth/debug
+ * Debug endpoint to test database and bcrypt
+ * WARNING: Remove in production!
+ */
+router.get('/debug', async (req, res) => {
+  try {
+    console.log('🔧 Running auth debug...');
+
+    // Test database connection
+    const dbTest = await query('SELECT NOW() as now');
+    console.log('✅ Database connected:', dbTest.rows[0].now);
+
+    // Get user from database
+    const userResult = await query(
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      ['kevin']
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.json({
+        success: false,
+        error: 'User "kevin" not found in database',
+        suggestion: 'Run: npm run seed',
+      });
+    }
+
+    const user = userResult.rows[0];
+    const storedHash = user.password_hash;
+
+    // Test bcrypt with the stored hash
+    const testPassword = 'karma2024';
+    const compareResult = await bcrypt.compare(testPassword, storedHash);
+
+    // Generate a fresh hash for comparison
+    const freshHash = await bcrypt.hash(testPassword, 10);
+    const freshCompare = await bcrypt.compare(testPassword, freshHash);
+
+    // Test with the expected hash
+    const expectedHash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+    const expectedCompare = await bcrypt.compare(testPassword, expectedHash);
+
+    res.json({
+      success: true,
+      database: {
+        connected: true,
+        timestamp: dbTest.rows[0].now,
+      },
+      user: {
+        id: user.id,
+        username: user.username,
+        hashLength: storedHash?.length,
+        hashPreview: storedHash?.substring(0, 20) + '...',
+      },
+      bcryptTests: {
+        storedHashWorks: compareResult,
+        freshHashWorks: freshCompare,
+        expectedHashWorks: expectedCompare,
+      },
+      recommendation: compareResult
+        ? 'Authentication should work. Check if password is being sent correctly.'
+        : 'Hash mismatch. Run "npm run seed" to reset the password.',
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack,
     });
   }
 });

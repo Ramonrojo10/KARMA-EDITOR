@@ -53,5 +53,5 @@ CREATE INDEX IF NOT EXISTS idx_executions_video_id ON executions(video_id);
 -- Insert default user (password: karma2024)
 -- Password hash generated with bcrypt (10 rounds)
 INSERT INTO users (username, password_hash)
-VALUES ('kevin', '$2a$10$rQnMKG.6tXz5pU5YWFKqV.3y8X8rGLQXW2sOBCQ3zL0VQ8g5h5XDi')
+VALUES ('kevin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy')
 ON CONFLICT (username) DO NOTHING;
