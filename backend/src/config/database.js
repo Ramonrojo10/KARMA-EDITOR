@@ -13,10 +13,13 @@ dotenv.config();
 const { Pool } = pg;
 
 // Default connection string (fallback if DATABASE_URL not set)
-const DEFAULT_DATABASE_URL = 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@localhost:5432/karma_editing';
+// Use 127.0.0.1 instead of localhost to avoid IPv6 issues
+const DEFAULT_DATABASE_URL = 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@127.0.0.1:5432/karma_editing';
 
 // Get database URL from environment or use default
-const databaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+// Replace 'localhost' with '127.0.0.1' to avoid IPv6 connection issues
+let databaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+databaseUrl = databaseUrl.replace('@localhost:', '@127.0.0.1:');
 
 console.log('🔧 Database Configuration:');
 console.log(`   URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`); // Log URL with hidden password
