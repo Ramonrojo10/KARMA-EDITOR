@@ -5,18 +5,29 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 
+// Load environment variables from multiple locations
 dotenv.config({ path: '../../.env' });
+dotenv.config({ path: '../.env' });
 dotenv.config();
 
 const { Pool } = pg;
 
-// Create connection pool
+// Default connection string (fallback if DATABASE_URL not set)
+const DEFAULT_DATABASE_URL = 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@localhost:5432/karma_editing';
+
+// Get database URL from environment or use default
+const databaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+
+console.log('🔧 Database Configuration:');
+console.log(`   URL: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`); // Log URL with hidden password
+
+// Create connection pool - SSL is DISABLED (database doesn't support it)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: databaseUrl,
+  ssl: false, // SSL disabled - database doesn't support it
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Increased timeout
 });
 
 // Test connection on startup
@@ -25,9 +36,24 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('❌ Unexpected database error:', err.message);
+  // Don't exit immediately - allow reconnection attempts
 });
+
+/**
+ * Test database connection
+ * @returns {Promise<boolean>} True if connection successful
+ */
+export const testConnection = async () => {
+  try {
+    const result = await pool.query('SELECT NOW() as now, current_database() as db');
+    console.log(`✅ Database connected: ${result.rows[0].db} at ${result.rows[0].now}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    return false;
+  }
+};
 
 /**
  * Execute a query with parameters

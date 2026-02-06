@@ -18,8 +18,11 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log(`🔐 Login attempt for user: ${username}`);
+
     // Validate input
     if (!username || !password) {
+      console.log('❌ Missing credentials');
       return res.status(400).json({
         error: 'Missing credentials',
         message: 'Username and password are required',
@@ -27,12 +30,16 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user by username
+    console.log('📦 Querying database for user...');
     const result = await query(
       'SELECT id, username, password_hash FROM users WHERE username = $1',
       [username.toLowerCase().trim()]
     );
 
+    console.log(`📦 Query returned ${result.rows.length} rows`);
+
     if (result.rows.length === 0) {
+      console.log(`❌ User not found: ${username}`);
       return res.status(401).json({
         error: 'Authentication failed',
         message: 'Invalid username or password',
@@ -40,11 +47,15 @@ router.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
+    console.log(`✅ User found: ${user.username} (ID: ${user.id})`);
 
     // Verify password
+    console.log('🔑 Verifying password...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    console.log(`🔑 Password valid: ${isValidPassword}`);
 
     if (!isValidPassword) {
+      console.log('❌ Invalid password');
       return res.status(401).json({
         error: 'Authentication failed',
         message: 'Invalid username or password',
@@ -52,6 +63,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate JWT token
+    console.log('🎫 Generating JWT token...');
     const token = generateToken({
       id: user.id,
       username: user.username,
@@ -65,6 +77,8 @@ router.post('/login', async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    console.log(`✅ Login successful for user: ${user.username}`);
+
     // Return user info (without password)
     res.json({
       success: true,
@@ -75,10 +89,12 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       error: 'Server error',
       message: 'Failed to authenticate',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
     });
   }
 });

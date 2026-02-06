@@ -15,6 +15,7 @@ import videoRoutes from './routes/videos.js';
 import statsRoutes from './routes/stats.js';
 import youtubeRoutes from './routes/youtube.js';
 import { authenticateToken } from './middleware/auth.js';
+import { testConnection } from './config/database.js';
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
@@ -93,17 +94,30 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`
+const startServer = async () => {
+  // Test database connection before starting
+  console.log('\n🔌 Testing database connection...');
+  const dbConnected = await testConnection();
+
+  if (!dbConnected) {
+    console.error('⚠️  Warning: Database connection failed. Server will start but auth may not work.');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║   🎬 KARMA OPS EDITOR - Backend Server               ║
 ║                                                       ║
 ║   Server running on port ${PORT}                        ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}                       ║
+║   Database: ${dbConnected ? '✅ Connected' : '❌ Not connected'}                          ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
-  `);
-});
+    `);
+  });
+};
+
+startServer().catch(console.error);
 
 export default app;
