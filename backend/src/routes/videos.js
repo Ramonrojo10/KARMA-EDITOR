@@ -7,7 +7,6 @@ import express from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import FormData from 'form-data';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { uploadVideo, handleUploadError } from '../middleware/upload.js';
@@ -15,6 +14,7 @@ import { uploadVideo, handleUploadError } from '../middleware/upload.js';
 const router = express.Router();
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8n2.0.karmaops.online/webhook/video-upload';
+const BACKEND_URL = process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:4000';
 
 /**
  * GET /api/videos
@@ -211,36 +211,33 @@ router.post('/', uploadVideo, handleUploadError, async (req, res) => {
       [videoId]
     );
 
-    // Trigger n8n webhook with binary file
+    // Trigger n8n webhook with video metadata and download URL
     try {
-      console.log('📤 Sending video to n8n webhook:', N8N_WEBHOOK_URL);
+      // Build the download URL for n8n to fetch the video
+      const downloadUrl = `${BACKEND_URL}/api/videos/${videoId}/download`;
+
+      console.log('📤 Sending webhook to n8n:', N8N_WEBHOOK_URL);
       console.log('📁 File path:', file.path);
       console.log('📊 File size:', file.size);
+      console.log('🔗 Download URL:', downloadUrl);
 
-      // Create form data with the video file as binary
-      const formData = new FormData();
-
-      // Append the video file as binary stream
-      const fileStream = fs.createReadStream(file.path);
-      formData.append('file', fileStream, {
+      // Send JSON with video metadata and download URL
+      const webhookPayload = {
+        videoId: videoId.toString(),
+        userId: req.user.id.toString(),
         filename: file.originalname,
-        contentType: file.mimetype || 'video/mp4',
-      });
+        fileSize: file.size,
+        title: title || file.originalname.replace(/\.[^/.]+$/, ''),
+        mimeType: file.mimetype || 'video/mp4',
+        downloadUrl: downloadUrl,
+        filePath: file.path, // Local path on server (if n8n is on same server)
+        callbackUrl: `${BACKEND_URL}/api/videos/${videoId}/status`,
+      };
 
-      // Append metadata as form fields
-      formData.append('videoId', videoId.toString());
-      formData.append('userId', req.user.id.toString());
-      formData.append('filename', file.originalname);
-      formData.append('fileSize', file.size.toString());
-      formData.append('title', title || file.originalname.replace(/\.[^/.]+$/, ''));
-
-      // Send to n8n webhook as multipart/form-data
-      const webhookResponse = await axios.post(N8N_WEBHOOK_URL, formData, {
-        timeout: 600000, // 10 minutes timeout for large files
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+      const webhookResponse = await axios.post(N8N_WEBHOOK_URL, webhookPayload, {
+        timeout: 30000, // 30 seconds for webhook trigger
         headers: {
-          ...formData.getHeaders(),
+          'Content-Type': 'application/json',
         },
       });
 
@@ -353,6 +350,58 @@ router.put('/:id/status', async (req, res) => {
     res.status(500).json({
       error: 'Server error',
       message: 'Failed to update status',
+    });
+  }
+});
+
+/**
+ * GET /api/videos/:id/download
+ * Download video file (for n8n to fetch)
+ * No authentication required for n8n access
+ */
+router.get('/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get video file path from database
+    const result = await query(
+      'SELECT file_path, original_filename, file_size FROM videos WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    const { file_path, original_filename, file_size } = result.rows[0];
+
+    // Check if file exists
+    if (!file_path || !fs.existsSync(file_path)) {
+      return res.status(404).json({ error: 'Video file not found on disk' });
+    }
+
+    console.log(`📥 Downloading video ${id}: ${original_filename} (${file_size} bytes)`);
+
+    // Set headers for binary download
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${original_filename}"`);
+    res.setHeader('Content-Length', file_size);
+
+    // Stream the file
+    const fileStream = fs.createReadStream(file_path);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (error) => {
+      console.error('File stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error streaming file' });
+      }
+    });
+  } catch (error) {
+    console.error('Download error:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Failed to download video',
     });
   }
 });
