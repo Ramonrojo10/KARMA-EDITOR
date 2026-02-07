@@ -62,10 +62,7 @@ router.put('/:id/status', async (req, res) => {
       paramIndex++;
     }
 
-    // Add updated_at
-    updates.push(`updated_at = NOW()`);
-
-    if (updates.length === 1) {
+    if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
