@@ -7,6 +7,7 @@ import express from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import FormData from 'form-data';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { uploadVideo, handleUploadError } from '../middleware/upload.js';
@@ -210,18 +211,36 @@ router.post('/', uploadVideo, handleUploadError, async (req, res) => {
       [videoId]
     );
 
-    // Trigger n8n webhook
+    // Trigger n8n webhook with binary file
     try {
-      const webhookResponse = await axios.post(N8N_WEBHOOK_URL, {
-        videoPath: file.path,
-        videoId: videoId.toString(),
-        userId: req.user.id,
+      console.log('📤 Sending video to n8n webhook:', N8N_WEBHOOK_URL);
+      console.log('📁 File path:', file.path);
+      console.log('📊 File size:', file.size);
+
+      // Create form data with the video file as binary
+      const formData = new FormData();
+
+      // Append the video file as binary stream
+      const fileStream = fs.createReadStream(file.path);
+      formData.append('file', fileStream, {
         filename: file.originalname,
-        fileSize: file.size,
-      }, {
-        timeout: 30000, // 30 second timeout
+        contentType: file.mimetype || 'video/mp4',
+      });
+
+      // Append metadata as form fields
+      formData.append('videoId', videoId.toString());
+      formData.append('userId', req.user.id.toString());
+      formData.append('filename', file.originalname);
+      formData.append('fileSize', file.size.toString());
+      formData.append('title', title || file.originalname.replace(/\.[^/.]+$/, ''));
+
+      // Send to n8n webhook as multipart/form-data
+      const webhookResponse = await axios.post(N8N_WEBHOOK_URL, formData, {
+        timeout: 600000, // 10 minutes timeout for large files
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
         headers: {
-          'Content-Type': 'application/json',
+          ...formData.getHeaders(),
         },
       });
 
@@ -233,9 +252,14 @@ router.post('/', uploadVideo, handleUploadError, async (req, res) => {
         );
       }
 
-      console.log('n8n webhook triggered successfully:', webhookResponse.status);
+      console.log('✅ n8n webhook triggered successfully:', webhookResponse.status);
+      console.log('📦 n8n response:', JSON.stringify(webhookResponse.data));
     } catch (webhookError) {
-      console.error('n8n webhook error:', webhookError.message);
+      console.error('❌ n8n webhook error:', webhookError.message);
+      if (webhookError.response) {
+        console.error('❌ n8n response status:', webhookError.response.status);
+        console.error('❌ n8n response data:', webhookError.response.data);
+      }
       // Don't fail the upload, just log the error
       // The video is still saved and can be retried
     }
