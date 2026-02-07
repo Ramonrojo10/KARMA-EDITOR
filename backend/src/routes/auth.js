@@ -100,10 +100,14 @@ router.post('/login', async (req, res) => {
     });
 
     // Set httpOnly cookie
+    // Note: secure=true only works with HTTPS
+    const isSecure = process.env.NODE_ENV === 'production' &&
+                     (process.env.FORCE_HTTPS === 'true' || false);
+
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -134,10 +138,13 @@ router.post('/login', async (req, res) => {
  * Clear authentication cookie
  */
 router.post('/logout', (req, res) => {
+  const isSecure = process.env.NODE_ENV === 'production' &&
+                   (process.env.FORCE_HTTPS === 'true' || false);
+
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isSecure,
+    sameSite: isSecure ? 'strict' : 'lax',
   });
 
   res.json({
