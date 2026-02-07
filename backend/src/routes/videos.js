@@ -231,7 +231,7 @@ router.post('/', uploadVideo, handleUploadError, async (req, res) => {
         mimeType: file.mimetype || 'video/mp4',
         downloadUrl: downloadUrl,
         filePath: file.path, // Local path on server (if n8n is on same server)
-        callbackUrl: `${BACKEND_URL}/api/videos/${videoId}/status`,
+        callbackUrl: `${BACKEND_URL}/api/download/${videoId}/status`,
       };
 
       const webhookResponse = await axios.post(N8N_WEBHOOK_URL, webhookPayload, {
