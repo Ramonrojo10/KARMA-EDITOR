@@ -14,8 +14,13 @@ const router = express.Router();
  */
 async function getYouTubeCredentials() {
   // Try database first, then fall back to env vars
-  const apiKey = await getSetting('youtube_api_key') || process.env.apiKey;
-  const channelId = await getSetting('youtube_channel_id') || process.env.channelId;
+  const apiKey = await getSetting('youtube_api_key') || process.env.YOUTUBE_API_KEY;
+  const channelId = await getSetting('youtube_channel_id') || process.env.YOUTUBE_CHANNEL_ID;
+
+  console.log('📺 YouTube credentials check:');
+  console.log('  - API Key from DB:', apiKey ? `***${apiKey.slice(-4)}` : 'not set');
+  console.log('  - Channel ID from DB:', channelId || 'not set');
+
   return { apiKey, channelId };
 }
 
@@ -137,7 +142,8 @@ router.get('/videos', async (req, res) => {
       source: 'youtube',
     });
   } catch (error) {
-    console.error('YouTube API error:', error.response?.data || error.message);
+    console.error('❌ YouTube API error:', error.response?.data || error.message);
+    console.error('   Full error:', JSON.stringify(error.response?.data, null, 2));
 
     // Return mock data on error
     res.json({
