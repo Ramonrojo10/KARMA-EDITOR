@@ -46,8 +46,10 @@ router.get('/videos', async (req, res) => {
     // First, get the channel's upload playlist
     let uploadsPlaylistId = channelId;
 
-    if (!uploadsPlaylistId?.startsWith('UU')) {
-      // If we have a channel ID, get the uploads playlist
+    // If channel ID starts with UC, convert to uploads playlist (UU)
+    if (channelId?.startsWith('UC')) {
+      // Try to get the uploads playlist from the channels API
+      console.log('📺 Getting uploads playlist for channel:', channelId);
       try {
         const channelResponse = await axios.get(
           `https://www.googleapis.com/youtube/v3/channels`, {
@@ -59,11 +61,21 @@ router.get('/videos', async (req, res) => {
           }
         );
 
+        console.log('📺 Channel API response:', JSON.stringify(channelResponse.data, null, 2));
+
         if (channelResponse.data.items?.length > 0) {
           uploadsPlaylistId = channelResponse.data.items[0].contentDetails.relatedPlaylists.uploads;
+          console.log('📺 Found uploads playlist:', uploadsPlaylistId);
+        } else {
+          // Fallback: convert UC to UU manually
+          uploadsPlaylistId = 'UU' + channelId.substring(2);
+          console.log('📺 No items in response, using manual conversion:', uploadsPlaylistId);
         }
       } catch (e) {
-        console.error('Error getting channel info:', e.message);
+        console.error('Error getting channel info:', e.response?.data || e.message);
+        // Fallback: convert UC to UU manually
+        uploadsPlaylistId = 'UU' + channelId.substring(2);
+        console.log('📺 Error occurred, using manual conversion:', uploadsPlaylistId);
       }
     }
 
