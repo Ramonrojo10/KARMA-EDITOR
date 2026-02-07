@@ -19,10 +19,12 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import Button from '../components/Button';
 
 function Settings() {
   const { changePassword } = useAuth();
+  const { darkMode, toggleTheme } = useTheme();
 
   // Password change form
   const [passwordForm, setPasswordForm] = useState({
@@ -43,9 +45,6 @@ function Settings() {
     channelId: '',
   });
   const [savingKeys, setSavingKeys] = useState(false);
-
-  // Dark mode
-  const [darkMode, setDarkMode] = useState(true);
 
   // Handle password change
   const handlePasswordChange = async (e) => {
@@ -325,9 +324,9 @@ function Settings() {
             </div>
           </div>
           <button
-            onClick={() => setDarkMode(!darkMode)}
+            onClick={toggleTheme}
             className={`relative w-14 h-7 rounded-full transition-colors ${
-              darkMode ? 'bg-primary-500' : 'bg-dark-50'
+              darkMode ? 'bg-primary-500' : 'bg-gray-300'
             }`}
           >
             <span
