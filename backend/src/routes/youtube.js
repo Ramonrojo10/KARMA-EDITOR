@@ -5,11 +5,19 @@
 
 import express from 'express';
 import axios from 'axios';
+import { getSetting } from './settings.js';
 
 const router = express.Router();
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
+/**
+ * Get YouTube credentials from DB or env vars
+ */
+async function getYouTubeCredentials() {
+  // Try database first, then fall back to env vars
+  const apiKey = await getSetting('youtube_api_key') || process.env.apiKey;
+  const channelId = await getSetting('youtube_channel_id') || process.env.channelId;
+  return { apiKey, channelId };
+}
 
 /**
  * GET /api/youtube/videos
@@ -17,19 +25,21 @@ const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
  */
 router.get('/videos', async (req, res) => {
   try {
-    if (!YOUTUBE_API_KEY) {
+    const { apiKey, channelId } = await getYouTubeCredentials();
+
+    if (!apiKey) {
       // Return mock data if no API key configured
       return res.json({
         videos: generateMockYouTubeData(),
         source: 'mock',
-        message: 'Using mock data. Configure YOUTUBE_API_KEY for real data.',
+        message: 'Using mock data. Configure YouTube API Key in Settings.',
       });
     }
 
     const { maxResults = 20, pageToken } = req.query;
 
     // First, get the channel's upload playlist
-    let uploadsPlaylistId = YOUTUBE_CHANNEL_ID;
+    let uploadsPlaylistId = channelId;
 
     if (!uploadsPlaylistId?.startsWith('UU')) {
       // If we have a channel ID, get the uploads playlist
@@ -37,8 +47,8 @@ router.get('/videos', async (req, res) => {
         const channelResponse = await axios.get(
           `https://www.googleapis.com/youtube/v3/channels`, {
             params: {
-              key: YOUTUBE_API_KEY,
-              id: YOUTUBE_CHANNEL_ID,
+              key: apiKey,
+              id: channelId,
               part: 'contentDetails',
             },
           }
@@ -56,7 +66,7 @@ router.get('/videos', async (req, res) => {
     const playlistResponse = await axios.get(
       `https://www.googleapis.com/youtube/v3/playlistItems`, {
         params: {
-          key: YOUTUBE_API_KEY,
+          key: apiKey,
           playlistId: uploadsPlaylistId,
           part: 'snippet,contentDetails',
           maxResults: parseInt(maxResults, 10),
@@ -75,7 +85,7 @@ router.get('/videos', async (req, res) => {
       const detailsResponse = await axios.get(
         `https://www.googleapis.com/youtube/v3/videos`, {
           params: {
-            key: YOUTUBE_API_KEY,
+            key: apiKey,
             id: videoIds,
             part: 'statistics,contentDetails,status',
           },

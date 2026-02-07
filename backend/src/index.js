@@ -14,6 +14,7 @@ import authRoutes from './routes/auth.js';
 import videoRoutes from './routes/videos.js';
 import statsRoutes from './routes/stats.js';
 import youtubeRoutes from './routes/youtube.js';
+import settingsRoutes from './routes/settings.js';
 import { authenticateToken } from './middleware/auth.js';
 import { testConnection } from './config/database.js';
 
@@ -55,6 +56,7 @@ app.use('/api/download', (await import('./routes/download.js')).default);
 app.use('/api/videos', authenticateToken, videoRoutes);
 app.use('/api/stats', authenticateToken, statsRoutes);
 app.use('/api/youtube', authenticateToken, youtubeRoutes);
+app.use('/api/settings', authenticateToken, settingsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

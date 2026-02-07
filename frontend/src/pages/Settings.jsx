@@ -3,7 +3,7 @@
  * User settings and configuration
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Lock,
@@ -16,10 +16,12 @@ import {
   EyeOff,
   AlertTriangle,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import api from '../utils/api';
 import Button from '../components/Button';
 
 function Settings() {
@@ -44,7 +46,43 @@ function Settings() {
     youtubeApiKey: '',
     channelId: '',
   });
+  const [existingKeys, setExistingKeys] = useState({
+    youtubeApiKey: false,
+    channelId: false,
+  });
   const [savingKeys, setSavingKeys] = useState(false);
+  const [deletingKeys, setDeletingKeys] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
+  // Load existing settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const response = await api.get('/settings');
+      const settings = response.data.settings || {};
+
+      setExistingKeys({
+        youtubeApiKey: settings.youtube_api_key?.hasValue || false,
+        channelId: settings.youtube_channel_id?.hasValue || false,
+      });
+
+      // Show masked value if exists
+      if (settings.youtube_channel_id?.value && !settings.youtube_channel_id.value.startsWith('***')) {
+        setApiKeys(prev => ({
+          ...prev,
+          channelId: settings.youtube_channel_id.value,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
 
   // Handle password change
   const handlePasswordChange = async (e) => {
@@ -79,14 +117,48 @@ function Settings() {
   // Handle API keys save
   const handleSaveApiKeys = async (e) => {
     e.preventDefault();
+
+    if (!apiKeys.youtubeApiKey && !apiKeys.channelId) {
+      toast.error('Enter at least one field to save');
+      return;
+    }
+
     setSavingKeys(true);
+    try {
+      await api.post('/settings/youtube', {
+        apiKey: apiKeys.youtubeApiKey || undefined,
+        channelId: apiKeys.channelId || undefined,
+      });
 
-    // In a real app, this would save to the server
-    // For now, we'll just show a success message
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+      toast.success('YouTube configuration saved!');
+      setApiKeys({ youtubeApiKey: '', channelId: '' });
+      loadSettings(); // Reload to show updated status
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save configuration');
+    } finally {
+      setSavingKeys(false);
+    }
+  };
 
-    toast.success('API keys updated');
-    setSavingKeys(false);
+  // Handle delete API keys
+  const handleDeleteApiKeys = async () => {
+    if (!confirm('Are you sure you want to delete the YouTube configuration?')) {
+      return;
+    }
+
+    setDeletingKeys(true);
+    try {
+      await api.delete('/settings/youtube');
+      toast.success('YouTube configuration deleted');
+      setExistingKeys({ youtubeApiKey: false, channelId: false });
+      setApiKeys({ youtubeApiKey: '', channelId: '' });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete configuration');
+    } finally {
+      setDeletingKeys(false);
+    }
   };
 
   // Handle clear cache
@@ -237,26 +309,54 @@ function Settings() {
         transition={{ delay: 0.2 }}
         className="bg-dark-200 rounded-2xl border border-dark-50 p-6"
       >
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-xl bg-gold-500/20">
-            <Key size={20} className="text-gold-400" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gold-500/20">
+              <Key size={20} className="text-gold-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-white">YouTube API Configuration</h2>
           </div>
-          <h2 className="text-lg font-semibold text-white">API Configuration</h2>
+          <button
+            onClick={loadSettings}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+            title="Refresh settings"
+          >
+            <RefreshCw size={18} className={loadingSettings ? 'animate-spin' : ''} />
+          </button>
         </div>
 
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <AlertTriangle size={18} className="text-yellow-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-300">
-            API keys are configured through environment variables on the server.
-            Contact your administrator to update these values.
-          </p>
-        </div>
+        {/* Current status */}
+        {(existingKeys.youtubeApiKey || existingKeys.channelId) && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+            <CheckCircle size={18} className="text-green-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-green-300">
+              <p className="font-medium">YouTube API is configured</p>
+              <p className="text-green-400 mt-1">
+                {existingKeys.youtubeApiKey && 'API Key: ***configured'}
+                {existingKeys.youtubeApiKey && existingKeys.channelId && ' | '}
+                {existingKeys.channelId && 'Channel ID: ***configured'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!existingKeys.youtubeApiKey && !existingKeys.channelId && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-300">
+              YouTube API is not configured. Enter your API key and Channel ID to enable YouTube Studio features.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSaveApiKeys} className="space-y-4">
           {/* YouTube API Key */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               YouTube API Key
+              {existingKeys.youtubeApiKey && (
+                <span className="ml-2 text-green-400 text-xs">(configured - enter new value to update)</span>
+              )}
             </label>
             <input
               type="password"
@@ -264,16 +364,21 @@ function Settings() {
               onChange={(e) =>
                 setApiKeys({ ...apiKeys, youtubeApiKey: e.target.value })
               }
-              placeholder="AIza..."
+              placeholder={existingKeys.youtubeApiKey ? '***configured***' : 'AIza...'}
               className="w-full bg-dark-100 border border-dark-50 rounded-xl px-4 py-3 text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-              disabled
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Get your API key from the Google Cloud Console
+            </p>
           </div>
 
           {/* Channel ID */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               YouTube Channel ID
+              {existingKeys.channelId && (
+                <span className="ml-2 text-green-400 text-xs">(configured)</span>
+              )}
             </label>
             <input
               type="text"
@@ -281,21 +386,38 @@ function Settings() {
               onChange={(e) =>
                 setApiKeys({ ...apiKeys, channelId: e.target.value })
               }
-              placeholder="UC..."
+              placeholder={existingKeys.channelId ? '***configured***' : 'UC...'}
               className="w-full bg-dark-100 border border-dark-50 rounded-xl px-4 py-3 text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-              disabled
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Find your Channel ID in YouTube Studio Settings
+            </p>
           </div>
 
-          <Button
-            type="submit"
-            variant="secondary"
-            loading={savingKeys}
-            icon={Save}
-            disabled
-          >
-            Save Configuration
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              variant="primary"
+              loading={savingKeys}
+              icon={Save}
+              disabled={!apiKeys.youtubeApiKey && !apiKeys.channelId}
+            >
+              Save Configuration
+            </Button>
+
+            {(existingKeys.youtubeApiKey || existingKeys.channelId) && (
+              <Button
+                type="button"
+                variant="ghost"
+                loading={deletingKeys}
+                icon={Trash2}
+                onClick={handleDeleteApiKeys}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
+                Delete
+              </Button>
+            )}
+          </div>
         </form>
       </motion.div>
 

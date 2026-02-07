@@ -44,11 +44,22 @@ CREATE TABLE IF NOT EXISTS executions (
   error_message TEXT
 );
 
+-- Settings table for API keys and configuration
+CREATE TABLE IF NOT EXISTS settings (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(100) UNIQUE NOT NULL,
+  value TEXT,
+  encrypted BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_executions_video_id ON executions(video_id);
+CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
 
 -- Insert default user (password: karma2024)
 -- Password hash generated with bcrypt (10 rounds)
