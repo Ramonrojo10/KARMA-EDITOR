@@ -214,7 +214,7 @@ router.post('/', uploadVideo, handleUploadError, async (req, res) => {
     // Trigger n8n webhook with video metadata and download URL
     try {
       // Build the download URL for n8n to fetch the video
-      const downloadUrl = `${BACKEND_URL}/api/videos/${videoId}/download`;
+      const downloadUrl = `${BACKEND_URL}/api/download/${videoId}`;
 
       console.log('📤 Sending webhook to n8n:', N8N_WEBHOOK_URL);
       console.log('📁 File path:', file.path);
@@ -350,58 +350,6 @@ router.put('/:id/status', async (req, res) => {
     res.status(500).json({
       error: 'Server error',
       message: 'Failed to update status',
-    });
-  }
-});
-
-/**
- * GET /api/videos/:id/download
- * Download video file (for n8n to fetch)
- * No authentication required for n8n access
- */
-router.get('/:id/download', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Get video file path from database
-    const result = await query(
-      'SELECT file_path, original_filename, file_size FROM videos WHERE id = $1',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Video not found' });
-    }
-
-    const { file_path, original_filename, file_size } = result.rows[0];
-
-    // Check if file exists
-    if (!file_path || !fs.existsSync(file_path)) {
-      return res.status(404).json({ error: 'Video file not found on disk' });
-    }
-
-    console.log(`📥 Downloading video ${id}: ${original_filename} (${file_size} bytes)`);
-
-    // Set headers for binary download
-    res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Content-Disposition', `attachment; filename="${original_filename}"`);
-    res.setHeader('Content-Length', file_size);
-
-    // Stream the file
-    const fileStream = fs.createReadStream(file_path);
-    fileStream.pipe(res);
-
-    fileStream.on('error', (error) => {
-      console.error('File stream error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Error streaming file' });
-      }
-    });
-  } catch (error) {
-    console.error('Download error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'Failed to download video',
     });
   }
 });

@@ -48,6 +48,10 @@ if (process.env.NODE_ENV !== 'production') {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+
+// Public download endpoint for n8n (no authentication)
+app.use('/api/download', (await import('./routes/download.js')).default);
+
 app.use('/api/videos', authenticateToken, videoRoutes);
 app.use('/api/stats', authenticateToken, statsRoutes);
 app.use('/api/youtube', authenticateToken, youtubeRoutes);
