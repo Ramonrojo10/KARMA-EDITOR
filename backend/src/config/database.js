@@ -14,7 +14,7 @@ const { Pool } = pg;
 
 // Default connection string (fallback if DATABASE_URL not set)
 // Use 127.0.0.1 instead of localhost to avoid IPv6 issues
-const DEFAULT_DATABASE_URL = 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@127.0.0.1:5432/karma_editing';
+const DEFAULT_DATABASE_URL = 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@5.175.184.130:5432/karma_editor';
 
 // Get database URL from environment or use default
 // Replace 'localhost' with '127.0.0.1' to avoid IPv6 connection issues
