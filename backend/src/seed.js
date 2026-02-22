@@ -15,14 +15,14 @@ async function seed() {
 
   try {
     // Create default user
-    const passwordHash = await bcrypt.hash('karma2024', 10);
+    const passwordHash = await bcrypt.hash('Demo2026', 10);
 
     const userResult = await query(
       `INSERT INTO users (username, password_hash)
        VALUES ($1, $2)
        ON CONFLICT (username) DO UPDATE SET password_hash = $2
        RETURNING id, username`,
-      ['kevin', passwordHash]
+      ['Karmabyte', passwordHash]
     );
 
     const user = userResult.rows[0];
@@ -103,8 +103,8 @@ async function seed() {
 
     console.log('\n✅ Seed completed successfully!');
     console.log('\n📋 Login credentials:');
-    console.log('   Username: kevin');
-    console.log('   Password: karma2024');
+    console.log('   Username: Karmabyte');
+    console.log('   Password: Demo2026');
 
     process.exit(0);
   } catch (error) {

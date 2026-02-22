@@ -61,8 +61,8 @@ CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_executions_video_id ON executions(video_id);
 CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
 
--- Insert default user (password: karma2024)
+-- Insert default user (password: Demo2026)
 -- Password hash generated with bcrypt (10 rounds)
 INSERT INTO users (username, password_hash)
-VALUES ('kevin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy')
+VALUES ('Karmabyte', '$2a$10$/9fPaf3769fKfiIXVUAXH.CxS/0eIs6E184QS1oYO5Ykhe0H.8Trm')
 ON CONFLICT (username) DO NOTHING;
