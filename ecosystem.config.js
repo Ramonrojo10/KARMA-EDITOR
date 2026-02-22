@@ -17,7 +17,7 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         PORT: 4000,
-        DATABASE_URL: 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@localhost:5432/karma_editing',
+        DATABASE_URL: 'postgres://postgres:ckTdIVsSlCLZq5HGWDTudzhkweN2sWEuXVgiOgyORL1gEWe57dPK7hhwKbhHl0Hc@localhost:5432/karma_editor',
         JWT_SECRET: 'karma-ops-super-secret-jwt-key-change-in-production',
         BACKEND_URL: 'http://10.0.1.1:4000',
       },

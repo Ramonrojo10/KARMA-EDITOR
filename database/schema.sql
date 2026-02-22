@@ -2,7 +2,7 @@
 -- Run this file to set up your PostgreSQL database
 
 -- Create database (run separately if needed)
--- CREATE DATABASE karma_editing;
+-- CREATE DATABASE karma_editor;
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
