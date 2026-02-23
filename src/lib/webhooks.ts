@@ -72,17 +72,24 @@ export const webhooks = {
       datos,
     }),
 
-  // Notifica a n8n que llegó un nuevo lead desde la landing
+  // Notifica a n8n que llegó un nuevo lead desde la landing.
+  // El payload usa los mismos nombres de columna que crm_leads
+  // para que n8n pueda hacer INSERT directo sin remapear campos.
   contactoIniciado: (lead: { nombre: string; email: string; telefono: string; mensaje: string }) =>
     postWebhook("contacto-landing", {
-      ...lead,
+      nombre: lead.nombre,
+      email: lead.email,
+      telefono: lead.telefono,
+      notas: lead.mensaje,       // mensaje → notas (columna en crm_leads)
       fuente: "landing-page",
+      etapa: "Nuevo",
+      probabilidad: 10,
       timestamp: new Date().toISOString(),
     }),
 
-  // Envía mensaje del visitante a n8n y espera respuesta IA
+  // Envía mensaje del visitante a n8n y espera respuesta IA.
   // Payload que recibe n8n:
-  //   lead: { nombre, email, telefono, mensaje }
+  //   lead: { nombre, email, telefono, notas }
   //   historial: [{ role: "user"|"ia", content: string }, ...]
   //   mensajeActual: string
   chatLanding: (
@@ -91,7 +98,12 @@ export const webhooks = {
     mensajeActual: string
   ) =>
     postWebhookChat("chat-landing", {
-      lead,
+      lead: {
+        nombre: lead.nombre,
+        email: lead.email,
+        telefono: lead.telefono,
+        notas: lead.mensaje,     // consistente con crm_leads
+      },
       historial,
       mensajeActual,
       timestamp: new Date().toISOString(),
