@@ -72,15 +72,16 @@ export const webhooks = {
       datos,
     }),
 
-  // Notifica a n8n que llegó un nuevo lead desde la landing.
-  // El payload usa los mismos nombres de columna que crm_leads
-  // para que n8n pueda hacer INSERT directo sin remapear campos.
+  // Crea el lead en crm_leads cuando el visitante envía el formulario.
+  // `interes_inicial` es el texto del formulario ("¿Qué estás buscando?").
+  // El campo `notas` de crm_leads lo rellena la IA durante el chat
+  // con un resumen estructurado para el asesor humano.
   contactoIniciado: (lead: { nombre: string; email: string; telefono: string; mensaje: string }) =>
     postWebhook("contacto-landing", {
       nombre: lead.nombre,
       email: lead.email,
       telefono: lead.telefono,
-      notas: lead.mensaje,       // mensaje → notas (columna en crm_leads)
+      interes_inicial: lead.mensaje,  // texto libre del form → contexto para la IA
       fuente: "landing-page",
       etapa: "Nuevo",
       probabilidad: 10,
@@ -88,8 +89,12 @@ export const webhooks = {
     }),
 
   // Envía mensaje del visitante a n8n y espera respuesta IA.
+  // n8n debe:
+  //   1. Responder al visitante (campo `respuesta`)
+  //   2. Actualizar crm_leads.notas con un resumen estructurado
+  //      (zona, presupuesto, tipo propiedad, disponibilidad, etc.)
   // Payload que recibe n8n:
-  //   lead: { nombre, email, telefono, notas }
+  //   lead: { nombre, email, telefono, interes_inicial }
   //   historial: [{ role: "user"|"ia", content: string }, ...]
   //   mensajeActual: string
   chatLanding: (
@@ -102,7 +107,7 @@ export const webhooks = {
         nombre: lead.nombre,
         email: lead.email,
         telefono: lead.telefono,
-        notas: lead.mensaje,     // consistente con crm_leads
+        interes_inicial: lead.mensaje,
       },
       historial,
       mensajeActual,
