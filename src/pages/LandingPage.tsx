@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { webhooks } from "@/lib/webhooks"
 import {
   MapPin,
   Phone,
@@ -55,12 +56,28 @@ export default function LandingPage() {
   const now = () =>
     new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
 
+  // Fallback local cuando n8n no está disponible
+  const IA_FALLBACK = [
+    (name: string) =>
+      `Perfecto, ${name}. Tenemos desarrollos en CDMX, Monterrey y Querétaro que podrían encajar con lo que buscas. ¿Tienes alguna zona preferida?`,
+    () =>
+      "Excelente. Nuestros asesores pueden preparar una propuesta personalizada según tu presupuesto. ¿Cuándo te viene bien una llamada?",
+    (name: string) =>
+      `Entendido, ${name}. Agenda una visita sin compromiso y te mostramos el desarrollo en persona. ¿Prefieres entre semana o fin de semana?`,
+    () =>
+      "Con gusto te enviamos un catálogo digital con disponibilidad, precios y renders. ¿A qué correo te lo mandamos?",
+  ]
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const nombre = formData.nombre.trim().split(" ")[0]
     const interés = formData.mensaje.trim()
       ? `"${formData.mensaje.trim()}"`
       : "una propiedad de lujo"
+
+    // Notifica a n8n (fire-and-forget) que llegó un nuevo lead
+    webhooks.contactoIniciado(formData)
+
     setChatMessages([
       {
         role: "ia",
@@ -71,33 +88,31 @@ export default function LandingPage() {
     setChatStarted(true)
   }
 
-  const IA_RESPONSES = [
-    (name: string) =>
-      `Perfecto, ${name}. Tenemos desarrollos en CDMX, Monterrey y Querétaro que podrían encajar con lo que buscas. ¿Te gustaría ver opciones disponibles ahora mismo?`,
-    () =>
-      "Excelente pregunta. Nuestros asesores especializados pueden preparar una propuesta personalizada según tu presupuesto. ¿Cuándo te viene bien una llamada?",
-    (name: string) =>
-      `Entendido, ${name}. Agenda una visita sin compromiso y te mostramos el desarrollo en persona. ¿Prefieres entre semana o fin de semana?`,
-    () =>
-      "Con gusto te enviamos un catálogo digital con disponibilidad, precios y renders de cada proyecto. ¿A qué correo te lo mandamos?",
-  ]
-
-  const sendChatMessage = () => {
-    if (!chatInput.trim()) return
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || iaTyping) return
     const nombre = formData.nombre.trim().split(" ")[0]
-    const userMsg = { role: "user" as const, content: chatInput.trim(), time: now() }
+    const texto = chatInput.trim()
+    const userMsg = { role: "user" as const, content: texto, time: now() }
+
     setChatMessages((prev) => [...prev, userMsg])
     setChatInput("")
     setIaTyping(true)
 
-    const pick = IA_RESPONSES[Math.floor(Math.random() * IA_RESPONSES.length)]
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "ia", content: pick(nombre), time: now() },
-      ])
-      setIaTyping(false)
-    }, 1200)
+    // Historial limpio para enviar a n8n (sin el campo time)
+    const historialParaN8n = [...chatMessages, userMsg].map(({ role, content }) => ({
+      role,
+      content,
+    }))
+
+    // Llama a n8n; si falla o tarda > 20s usa el fallback local
+    const respuestaN8n = await webhooks.chatLanding(formData, historialParaN8n, texto)
+
+    const respuesta =
+      respuestaN8n ??
+      IA_FALLBACK[Math.floor(Math.random() * IA_FALLBACK.length)](nombre)
+
+    setChatMessages((prev) => [...prev, { role: "ia", content: respuesta, time: now() }])
+    setIaTyping(false)
   }
 
   const handleChatKey = (e: React.KeyboardEvent) => {
