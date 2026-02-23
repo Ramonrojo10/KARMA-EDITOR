@@ -294,7 +294,7 @@ export default function LandingPage() {
                   "Tecnología IA para matching de propiedades",
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                    <ArrowRight className="h-5 w-5 text-primary shrink-0" />
                     <span className="text-sm">{item}</span>
                   </div>
                 ))}
