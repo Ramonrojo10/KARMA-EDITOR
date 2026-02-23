@@ -81,9 +81,28 @@ Payload:
 - El frontend usa mockData local mientras no haya integración con DB
 
 ## Branch activo
-`claude/list-postgres-tables-w0CkO`
+`claude/create-n8n-workflows-mcp-BiyTD`
+
+## Workflows n8n creados (activos)
+
+### `KARMA - contacto-landing` (ID: `kRFzHVXuTw04BozH`)
+Ruta: `POST /webhook/contacto-landing`
+Nodos: Webhook → Get Next Lead ID (Postgres) → Build Lead Data (Code) → Insert Lead en crm_leads (Postgres)
+- Genera ID incremental tipo `L001`, `L002`...
+- INSERT en `crm_leads` con nombre, email, teléfono, fuente, etapa, probabilidad
+
+### `KARMA - chat-landing` (ID: `UIX6s3wCM7p7hW5o`)
+Ruta: `POST /webhook/chat-landing` (síncrono, espera respuesta)
+Nodos: Webhook → Build Agent Prompt (Code) → AI Agent Karma Chat (LangChain Agent + GPT-4o-mini) → Parse AI Response (Code) → Update notas en DB (Postgres) → Respond to Webhook
+- IA responde con JSON `{ "respuesta": "...", "notas": "..." }`
+- UPDATE `crm_leads.notas` por email o teléfono
+
+### Credenciales usadas (verificar en n8n UI)
+- **Postgres**: `Tn1SvHGmRvuiOPRF` (new acc) — **confirmar que conecta a la DB `karma_editor`**
+- **OpenAI**: `QWMZcG0Mu67jS7DX` (OpenAi account) — modelo `gpt-4o-mini`
 
 ## Pendiente (próxima sesión)
-- Crear workflows en n8n usando MCP:
-  1. `contacto-landing` → INSERT en `crm_leads`
-  2. `chat-landing` → respuesta IA + UPDATE `crm_leads.notas`
+- Verificar que la credencial Postgres `Tn1SvHGmRvuiOPRF` apunta a la DB `karma_editor`
+  - Si no, crear credencial nueva en n8n y actualizar los dos workflows
+- Probar los webhooks con datos reales desde la landing
+- Integrar el frontend con la URL real de n8n (reemplazar localhost en `VITE_N8N_URL`)
