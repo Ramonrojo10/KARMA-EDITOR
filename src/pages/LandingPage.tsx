@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,9 @@ import {
   Facebook,
   Linkedin,
   ArrowRight,
-  CheckCircle2,
+  Send,
+  Bot,
+  User,
 } from "lucide-react"
 import { propiedades } from "@/data/mockData"
 import { formatCurrency } from "@/lib/utils"
@@ -40,12 +42,69 @@ export default function LandingPage() {
     telefono: "",
     mensaje: "",
   })
-  const [submitted, setSubmitted] = useState(false)
+  const [chatStarted, setChatStarted] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "ia"; content: string; time: string }[]>([])
+  const [chatInput, setChatInput] = useState("")
+  const [iaTyping, setIaTyping] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [chatMessages, iaTyping])
+
+  const now = () =>
+    new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 4000)
+    const nombre = formData.nombre.trim().split(" ")[0]
+    const interés = formData.mensaje.trim()
+      ? `"${formData.mensaje.trim()}"`
+      : "una propiedad de lujo"
+    setChatMessages([
+      {
+        role: "ia",
+        content: `¡Hola ${nombre}! Soy el asistente de Shitoushui Inmobiliaria. Ya recibí tu información y sé que buscas ${interés}. Estoy aquí para orientarte. ¿Tienes alguna zona o rango de presupuesto en mente?`,
+        time: now(),
+      },
+    ])
+    setChatStarted(true)
+  }
+
+  const IA_RESPONSES = [
+    (name: string) =>
+      `Perfecto, ${name}. Tenemos desarrollos en CDMX, Monterrey y Querétaro que podrían encajar con lo que buscas. ¿Te gustaría ver opciones disponibles ahora mismo?`,
+    () =>
+      "Excelente pregunta. Nuestros asesores especializados pueden preparar una propuesta personalizada según tu presupuesto. ¿Cuándo te viene bien una llamada?",
+    (name: string) =>
+      `Entendido, ${name}. Agenda una visita sin compromiso y te mostramos el desarrollo en persona. ¿Prefieres entre semana o fin de semana?`,
+    () =>
+      "Con gusto te enviamos un catálogo digital con disponibilidad, precios y renders de cada proyecto. ¿A qué correo te lo mandamos?",
+  ]
+
+  const sendChatMessage = () => {
+    if (!chatInput.trim()) return
+    const nombre = formData.nombre.trim().split(" ")[0]
+    const userMsg = { role: "user" as const, content: chatInput.trim(), time: now() }
+    setChatMessages((prev) => [...prev, userMsg])
+    setChatInput("")
+    setIaTyping(true)
+
+    const pick = IA_RESPONSES[Math.floor(Math.random() * IA_RESPONSES.length)]
+    setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "ia", content: pick(nombre), time: now() },
+      ])
+      setIaTyping(false)
+    }, 1200)
+  }
+
+  const handleChatKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendChatMessage()
+    }
   }
 
   return (
@@ -322,15 +381,95 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-2xl p-8">
-              {submitted ? (
-                <div className="text-center py-12">
-                  <CheckCircle2 className="h-16 w-16 text-green-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">¡Mensaje enviado!</h3>
-                  <p className="text-muted-foreground">Te contactaremos en menos de 24 horas.</p>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {chatStarted ? (
+                /* ── CHAT WIDGET ───────────────────────────────────────── */
+                <div className="flex flex-col h-[480px]">
+                  {/* header */}
+                  <div className="px-5 py-3 border-b border-border flex items-center gap-3 bg-card shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Bot className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Asistente Shitoushui</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                        <p className="text-xs text-muted-foreground">En línea</p>
+                      </div>
+                    </div>
+                    <Badge variant="gold" className="ml-auto text-[10px] px-1.5">IA</Badge>
+                  </div>
+
+                  {/* messages */}
+                  <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : ""}`}>
+                        {msg.role === "ia" && (
+                          <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                            <Bot className="h-3 w-3 text-primary" />
+                          </div>
+                        )}
+                        <div className="max-w-[78%]">
+                          <div className={msg.role === "ia" ? "chat-bubble-ia" : "chat-bubble-user"}>
+                            {msg.content}
+                          </div>
+                          <p className={`text-[10px] text-muted-foreground mt-1 ${msg.role === "user" ? "text-right" : ""}`}>
+                            {msg.time}
+                          </p>
+                        </div>
+                        {msg.role === "user" && (
+                          <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* typing indicator */}
+                    {iaTyping && (
+                      <div className="flex items-end gap-2">
+                        <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <Bot className="h-3 w-3 text-primary" />
+                        </div>
+                        <div className="chat-bubble-ia">
+                          <div className="flex gap-1">
+                            {[0, 1, 2].map((i) => (
+                              <div
+                                key={i}
+                                className="h-1.5 w-1.5 bg-muted-foreground rounded-full animate-bounce"
+                                style={{ animationDelay: `${i * 150}ms` }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* input */}
+                  <div className="px-4 py-3 border-t border-border flex gap-2 shrink-0">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleChatKey}
+                      placeholder="Escribe tu mensaje..."
+                      className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                    />
+                    <Button
+                      onClick={sendChatMessage}
+                      variant="gold"
+                      size="icon"
+                      disabled={!chatInput.trim()}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                /* ── FORMULARIO ────────────────────────────────────────── */
+                <form onSubmit={handleSubmit} className="space-y-5 p-8">
                   <div>
                     <label className="text-sm font-medium mb-1.5 block">Nombre completo</label>
                     <input
@@ -374,7 +513,7 @@ export default function LandingPage() {
                     />
                   </div>
                   <Button type="submit" variant="gold" className="w-full" size="lg">
-                    Solicitar información
+                    Comenzar contacto
                   </Button>
                 </form>
               )}
