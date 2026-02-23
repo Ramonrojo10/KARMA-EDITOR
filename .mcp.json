@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "https://n8n2.0.karmaops.online/mcp-server/http",
+        "--header",
+        "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZDQ4ZTFiNC0wMjJmLTQwMzEtODQ3Zi05MmEwZWM1MDY4MjEiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImVmNjBhZDFjLWM1ZDUtNGVmNS1hY2ExLThhMmQyMTQ4YjVjZCIsImlhdCI6MTc3MTgzNzQyMX0.JQ2AROJc8rZMqsLZT7gR0-P8UwxSWr6kEhaeBSrtKW8"
+      ]
+    }
+  }
+}
