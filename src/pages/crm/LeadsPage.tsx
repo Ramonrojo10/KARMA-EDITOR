@@ -169,19 +169,19 @@ export default function LeadsPage() {
     const actionMap: Record<string, { label: string; fn: () => Promise<boolean> }> = {
       cotizacion: {
         label: "Cotización generada",
-        fn: () => webhooks.generarCotizacion({ leadId: lead.id, nombre: lead.nombre, presupuesto: lead.presupuesto }),
+        fn: () => webhooks.generarCotizacion({ property_id: lead.id }),
       },
       visita: {
         label: "Visita agendada",
-        fn: () => webhooks.agendarVisita({ leadId: lead.id, nombre: lead.nombre, zona: lead.zona, asesor: lead.asesor }),
+        fn: () => webhooks.agendarVisita({ contact_phone: lead.telefono }),
       },
       asesor: {
         label: "Lead derivado",
-        fn: () => webhooks.derivarAsesor({ leadId: lead.id, nombre: lead.nombre, asesor: lead.asesor }),
+        fn: () => webhooks.derivarAsesor({ contact_phone: lead.telefono }),
       },
       pago: {
         label: "Recordatorio enviado",
-        fn: () => webhooks.recordatorioPago({ leadId: lead.id, nombre: lead.nombre, telefono: lead.telefono }),
+        fn: () => webhooks.logActividad("recordatorio_pago", { leadId: lead.id, nombre: lead.nombre, telefono: lead.telefono }),
       },
     }
 
@@ -189,7 +189,8 @@ export default function LeadsPage() {
     if (!handler) return
 
     handler.fn()
-    webhooks.logActividad(`accion_lead_${action}`, user?.email || "admin", {
+    webhooks.logActividad(`accion_lead_${action}`, {
+      usuario: user?.email || "admin",
       leadId: lead.id,
       leadNombre: lead.nombre,
       accion: action,
@@ -215,7 +216,8 @@ export default function LeadsPage() {
       )
     )
 
-    webhooks.logActividad("cambio_etapa_lead", user?.email || "admin", {
+    webhooks.logActividad("cambio_etapa_lead", {
+      usuario: user?.email || "admin",
       leadId: lead.id,
       de: lead.etapa,
       a: newStage,
