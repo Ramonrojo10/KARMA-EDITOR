@@ -37,17 +37,14 @@ export default function CobranzaPage() {
   }
 
   const handleRecordatorio = async (pago: typeof pagosCobranza[0]) => {
-    await webhooks.recordatorioPago({
-      leadNombre: pago.lead,
+    webhooks.logActividad("recordatorio_pago_enviado", {
+      usuario: user?.email || "admin",
+      pagoId: pago.id,
+      lead: pago.lead,
       propiedad: pago.propiedad,
       monto: pago.monto,
       telefono: pago.telefono,
       diasVencido: pago.diasVencido,
-    })
-    webhooks.logActividad("recordatorio_pago_enviado", user?.email || "admin", {
-      pagoId: pago.id,
-      lead: pago.lead,
-      monto: pago.monto,
     })
     toast({
       title: "Recordatorio enviado",
