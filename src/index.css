@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 43 74% 52%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 13%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 217 33% 15%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 43 74% 52%;
+    --radius: 0.75rem;
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 64px;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+@layer components {
+  .crm-card {
+    @apply bg-card border border-border rounded-xl p-4 shadow-lg;
+  }
+  .kpi-card {
+    @apply bg-card border border-border rounded-xl p-5 shadow-lg hover:border-primary/40 transition-colors;
+  }
+  .kanban-column {
+    @apply bg-muted/30 border border-border/50 rounded-xl p-3 min-h-[500px];
+  }
+  .lead-card {
+    @apply bg-card border border-border rounded-lg p-3 shadow-md hover:border-primary/30 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-0.5;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all text-sm font-medium;
+  }
+  .nav-item-active {
+    @apply text-primary bg-primary/10 border border-primary/20;
+  }
+  .btn-gold {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg text-sm font-semibold transition-colors;
+  }
+  .chat-bubble-ia {
+    @apply bg-secondary rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[80%] text-sm;
+  }
+  .chat-bubble-user {
+    @apply bg-primary/20 border border-primary/30 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%] text-sm ml-auto;
+  }
+  .chat-bubble-human {
+    @apply bg-blue-900/40 border border-blue-500/30 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[80%] text-sm;
+  }
+  .gold-gradient {
+    background: linear-gradient(135deg, #D4AF37 0%, #F5D05E 50%, #B8960C 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
+}
+
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+@keyframes slideInLeft {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Landing page overrides */
+.landing-section {
+  @apply py-20 px-4;
+}
