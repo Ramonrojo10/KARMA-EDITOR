@@ -75,8 +75,8 @@ export default function LandingPage() {
       ? `"${formData.mensaje.trim()}"`
       : "una propiedad de lujo"
 
-    // Notifica a n8n (fire-and-forget) que llegó un nuevo lead
-    webhooks.contactoIniciado(formData)
+    // Notifica a n8n — crea el lead en crm_leads y obtiene el lead_id asignado
+    webhooks.contactoIniciado(formData).catch(() => {})
 
     setChatMessages([
       {
