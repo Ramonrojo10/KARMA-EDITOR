@@ -1,28 +1,51 @@
-const N8N_URL = import.meta.env.VITE_N8N_URL || "http://localhost:5678"
+/**
+ * Webhooks — landing page → n8n CRM_IA_MASTER_WORKFLOW
+ *
+ * Paths match the n8n workflow triggers exactly:
+ *   lead-created, chat-message, request-visit, request-info, manual-followup
+ *
+ * VITE_N8N_URL must point to your n8n instance (e.g. https://n8n2.0.karmaops.online)
+ */
+
+const N8N_URL = import.meta.env.VITE_N8N_URL || "https://n8n2.0.karmaops.online"
 
 interface WebhookPayload {
   [key: string]: unknown
 }
 
-// Fire-and-forget — no espera respuesta de n8n
+// ─── Session lead ID (stable for the browser tab) ─────────────────────────────
+// Generated on first form submit; reused for all subsequent chat messages.
+let _sessionLeadId: string | null = null
+
+function getSessionLeadId(): string {
+  if (_sessionLeadId) return _sessionLeadId
+  const stored = sessionStorage.getItem("shitou_lead_id")
+  if (stored) { _sessionLeadId = stored; return stored }
+  const id = crypto.randomUUID()
+  sessionStorage.setItem("shitou_lead_id", id)
+  _sessionLeadId = id
+  return id
+}
+
+// ─── HTTP helpers ─────────────────────────────────────────────────────────────
+
+/** Fire-and-forget POST — doesn't block UI */
 async function postWebhook(path: string, payload: WebhookPayload): Promise<boolean> {
   try {
     const response = await fetch(`${N8N_URL}/webhook/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     })
     return response.ok
   } catch {
-    // Silent fail - demo works without n8n
     return false
   }
 }
 
-// Chat síncrono — espera la respuesta IA de n8n (hasta 20s)
-// n8n debe responder con: { "respuesta": "..." }
-async function postWebhookChat(path: string, payload: WebhookPayload): Promise<string | null> {
+/** Synchronous POST — waits up to 20s for IA reply */
+async function postWebhookSync(path: string, payload: WebhookPayload): Promise<WebhookPayload | null> {
   try {
     const response = await fetch(`${N8N_URL}/webhook/${path}`, {
       method: "POST",
@@ -31,87 +54,119 @@ async function postWebhookChat(path: string, payload: WebhookPayload): Promise<s
       signal: AbortSignal.timeout(20000),
     })
     if (!response.ok) return null
-    const data = await response.json()
-    // Acepta cualquiera de estos campos de respuesta del nodo de n8n
-    return (
-      data?.respuesta ??
-      data?.message ??
-      data?.output ??
-      data?.text ??
-      null
-    )
+    return await response.json()
   } catch {
     return null
   }
 }
 
+// ─── Webhook exports ──────────────────────────────────────────────────────────
+
 export const webhooks = {
-  generarCotizacion: (leadData: WebhookPayload) =>
-    postWebhook("cotizacion", { ...leadData, timestamp: new Date().toISOString() }),
 
-  agendarVisita: (leadData: WebhookPayload) =>
-    postWebhook("agendar-visita", { ...leadData, timestamp: new Date().toISOString() }),
+  /**
+   * Triggered when the visitor submits the contact form.
+   * Creates a new lead in crm_leads (or updates if same UUID).
+   * Returns the assigned lead_id so we can reuse it in chat.
+   */
+  contactoIniciado: async (lead: {
+    nombre: string
+    email: string
+    telefono: string
+    mensaje: string
+  }): Promise<{ lead_id?: string } | null> => {
+    const lead_id = getSessionLeadId()
+    const result = await postWebhookSync("lead-created", {
+      lead_id,
+      nombre:          lead.nombre,
+      email:           lead.email || undefined,
+      telefono:        lead.telefono || undefined,
+      source:          "landing-page",
+      referrer:        document.referrer || "direct",
+      user_agent:      navigator.userAgent,
+      time_on_page:    Math.round((Date.now() - _pageLoadTime) / 1000),
+    })
+    return result as { lead_id?: string } | null
+  },
 
-  derivarAsesor: (leadData: WebhookPayload) =>
-    postWebhook("derivar-asesor", { ...leadData, timestamp: new Date().toISOString() }),
-
-  recordatorioPago: (leadData: WebhookPayload) =>
-    postWebhook("recordatorio-pago", { ...leadData, timestamp: new Date().toISOString() }),
-
-  escalarHumano: (chatData: WebhookPayload) =>
-    postWebhook("escalar-humano", { ...chatData, timestamp: new Date().toISOString() }),
-
-  iaRetomaConversacion: (chatData: WebhookPayload) =>
-    postWebhook("ia-retoma", { ...chatData, timestamp: new Date().toISOString() }),
-
-  logActividad: (accion: string, usuario: string, datos: WebhookPayload) =>
-    postWebhook("log-actividad", {
-      accion,
-      usuario,
-      timestamp: new Date().toISOString(),
-      datos,
-    }),
-
-  // Crea el lead en crm_leads cuando el visitante envía el formulario.
-  // `interes_inicial` es el texto del formulario ("¿Qué estás buscando?").
-  // El campo `notas` de crm_leads lo rellena la IA durante el chat
-  // con un resumen estructurado para el asesor humano.
-  contactoIniciado: (lead: { nombre: string; email: string; telefono: string; mensaje: string }) =>
-    postWebhook("contacto-landing", {
-      nombre: lead.nombre,
-      email: lead.email,
-      telefono: lead.telefono,
-      interes_inicial: lead.mensaje,  // texto libre del form → contexto para la IA
-      fuente: "landing-page",
-      etapa: "Nuevo",
-      probabilidad: 10,
-      timestamp: new Date().toISOString(),
-    }),
-
-  // Envía mensaje del visitante a n8n y espera respuesta IA.
-  // n8n debe:
-  //   1. Responder al visitante (campo `respuesta`)
-  //   2. Actualizar crm_leads.notas con un resumen estructurado
-  //      (zona, presupuesto, tipo propiedad, disponibilidad, etc.)
-  // Payload que recibe n8n:
-  //   lead: { nombre, email, telefono, interes_inicial }
-  //   historial: [{ role: "user"|"ia", content: string }, ...]
-  //   mensajeActual: string
-  chatLanding: (
+  /**
+   * Sends a chat message to n8n GPT and waits for the IA reply.
+   * n8n responds with: { reply: "...", score: N, lead_class: "..." }
+   */
+  chatLanding: async (
     lead: { nombre: string; email: string; telefono: string; mensaje: string },
     historial: { role: "user" | "ia"; content: string }[],
     mensajeActual: string
-  ) =>
-    postWebhookChat("chat-landing", {
-      lead: {
-        nombre: lead.nombre,
-        email: lead.email,
-        telefono: lead.telefono,
-        interes_inicial: lead.mensaje,
+  ): Promise<string | null> => {
+    const lead_id = getSessionLeadId()
+    const data = await postWebhookSync("chat-message", {
+      lead_id,
+      message: mensajeActual,
+      context: {
+        time_on_page:   Math.round((Date.now() - _pageLoadTime) / 1000),
+        page_history:   historial.map(h => h.content).slice(-4),
       },
-      historial,
-      mensajeActual,
-      timestamp: new Date().toISOString(),
+      metadata: {
+        session_id: lead_id,
+        timestamp:  Date.now(),
+        // Pass lead contact info so n8n can enrich the lead if needed
+        lead_nombre:   lead.nombre,
+        lead_email:    lead.email,
+        lead_telefono: lead.telefono,
+      },
+    })
+    if (!data) return null
+    // Accept multiple response field names
+    return (
+      (data.reply    as string | undefined) ??
+      (data.message  as string | undefined) ??
+      (data.respuesta as string | undefined) ??
+      (data.output   as string | undefined) ??
+      (data.text     as string | undefined) ??
+      null
+    )
+  },
+
+  /** Visitor clicks "Agendar visita" button */
+  agendarVisita: (visitData: {
+    property_id?: string
+    preferred_date?: string
+    contact_phone?: string
+  }) =>
+    postWebhook("request-visit", {
+      lead_id:        getSessionLeadId(),
+      action:         "request-visit",
+      source:         "landing-page",
+      ...visitData,
+    }),
+
+  /** Visitor requests property info sheet / PDF */
+  generarCotizacion: (info: { property_id?: string; email?: string }) =>
+    postWebhook("request-info", {
+      lead_id:  getSessionLeadId(),
+      action:   "request-info",
+      source:   "landing-page",
+      ...info,
+    }),
+
+  /** Visitor explicitly requests a call */
+  derivarAsesor: (data: { preferred_time?: string; contact_phone?: string }) =>
+    postWebhook("request-call", {
+      lead_id:  getSessionLeadId(),
+      action:   "request-call",
+      source:   "landing-page",
+      ...data,
+    }),
+
+  /** Log a generic activity (analytics) */
+  logActividad: (accion: string, datos: WebhookPayload = {}) =>
+    postWebhook("property-viewed", {
+      lead_id:  getSessionLeadId(),
+      action:   accion,
+      source:   "landing-page",
+      ...datos,
     }),
 }
 
+// Track how long the visitor has been on the page
+const _pageLoadTime = Date.now()
