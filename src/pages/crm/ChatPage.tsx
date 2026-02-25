@@ -106,7 +106,8 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, newMsg])
     setInputValue("")
 
-    webhooks.logActividad("chat_mensaje_enviado", user?.email || "admin", {
+    webhooks.logActividad("chat_mensaje_enviado", {
+      usuario: user?.email || "admin",
       mensaje: inputValue,
       iaActiva: isIAActive,
     })
@@ -129,8 +130,7 @@ export default function ChatPage() {
   }
 
   const handleEscalar = async () => {
-    await webhooks.escalarHumano({ leadNombre: LEAD_PROFILE.nombre, etapa: LEAD_PROFILE.etapa })
-    webhooks.logActividad("escalar_humano", user?.email || "admin", { lead: LEAD_PROFILE.nombre })
+    webhooks.logActividad("escalar_humano", { usuario: user?.email || "admin", lead: LEAD_PROFILE.nombre, etapa: LEAD_PROFILE.etapa })
 
     setIsIAActive(false)
     const msg: ChatMessage = {
@@ -151,8 +151,7 @@ export default function ChatPage() {
   }
 
   const handleIARetoma = async () => {
-    await webhooks.iaRetomaConversacion({ leadNombre: LEAD_PROFILE.nombre })
-    webhooks.logActividad("ia_retoma_conversacion", user?.email || "admin", { lead: LEAD_PROFILE.nombre })
+    webhooks.logActividad("ia_retoma_conversacion", { usuario: user?.email || "admin", lead: LEAD_PROFILE.nombre })
 
     setIsIAActive(true)
     const msg: ChatMessage = {
@@ -355,7 +354,8 @@ export default function ChatPage() {
                 size="sm"
                 className="w-full text-xs justify-start"
                 onClick={() => {
-                  webhooks.logActividad(`chat_accion_${btn.action}`, user?.email || "admin", {
+                  webhooks.logActividad(`chat_accion_${btn.action}`, {
+                    usuario: user?.email || "admin",
                     lead: LEAD_PROFILE.nombre,
                   })
                   toast({
