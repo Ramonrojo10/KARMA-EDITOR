@@ -49,14 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       setUser(VALID_CREDENTIALS.user)
       sessionStorage.setItem("crm_user", JSON.stringify(VALID_CREDENTIALS.user))
-      webhooks.logActividad("login", email, { email, timestamp: new Date().toISOString() })
+      webhooks.logActividad("login", { usuario: email, email, timestamp: new Date().toISOString() })
       return true
     }
     return false
   }
 
   const logout = () => {
-    webhooks.logActividad("logout", user?.email || "unknown", {})
+    webhooks.logActividad("logout", { usuario: user?.email || "unknown" })
     setUser(null)
     sessionStorage.removeItem("crm_user")
   }
