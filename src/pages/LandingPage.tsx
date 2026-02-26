@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { webhooks } from "@/lib/webhooks"
+import { webhooks, getStoredLeadId, getStoredLeadNombre } from "@/lib/webhooks"
 import {
   MapPin,
   Phone,
@@ -49,6 +49,13 @@ export default function LandingPage() {
   const [iaTyping, setIaTyping] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // Session recovery — returning user detection
+  const [returningUser] = useState<{ nombre: string } | null>(() => {
+    const id     = getStoredLeadId()
+    const nombre = getStoredLeadNombre()
+    return id && nombre ? { nombre: nombre.split(" ")[0] } : null
+  })
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [chatMessages, iaTyping])
@@ -68,51 +75,54 @@ export default function LandingPage() {
       "Con gusto te enviamos un catálogo digital con disponibilidad, precios y renders. ¿A qué correo te lo mandamos?",
   ]
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const nombre = formData.nombre.trim().split(" ")[0]
-    const interés = formData.mensaje.trim()
-      ? `"${formData.mensaje.trim()}"`
-      : "una propiedad de lujo"
+    const firstMessage = formData.mensaje.trim() || "Hola, me interesa conocer sus propiedades."
 
-    // Notifica a n8n — crea el lead en crm_leads y obtiene el lead_id asignado
-    webhooks.contactoIniciado(formData).catch(() => {})
-
-    setChatMessages([
-      {
-        role: "ia",
-        content: `¡Hola ${nombre}! Soy el asistente de Shitoushui Inmobiliaria. Ya recibí tu información y sé que buscas ${interés}. Estoy aquí para orientarte. ¿Tienes alguna zona o rango de presupuesto en mente?`,
-        time: now(),
-      },
-    ])
     setChatStarted(true)
+    setChatMessages([{ role: "user", content: firstMessage, time: now() }])
+    setIaTyping(true)
+
+    const result = await webhooks.chatMessage({
+      nombre: formData.nombre.trim(),
+      email:  formData.email.trim(),
+      telefono: formData.telefono || undefined,
+      message: firstMessage,
+    })
+
+    setIaTyping(false)
+    const respuesta = result.reply ?? IA_FALLBACK[0](nombre)
+    setChatMessages((prev) => [...prev, { role: "ia", content: respuesta, time: now() }])
+  }
+
+  const handleRetomarSesion = async () => {
+    const nombre = returningUser!.nombre
+    setChatStarted(true)
+    setChatMessages([{ role: "user", content: "Hola, regresé.", time: now() }])
+    setIaTyping(true)
+
+    const result = await webhooks.chatMessage({ message: "Hola, regresé." })
+
+    setIaTyping(false)
+    const respuesta = result.reply ?? IA_FALLBACK[0](nombre)
+    setChatMessages((prev) => [...prev, { role: "ia", content: respuesta, time: now() }])
   }
 
   const sendChatMessage = async () => {
     if (!chatInput.trim() || iaTyping) return
-    const nombre = formData.nombre.trim().split(" ")[0]
+    const nombre = formData.nombre.trim().split(" ")[0] || returningUser?.nombre || "tú"
     const texto = chatInput.trim()
-    const userMsg = { role: "user" as const, content: texto, time: now() }
 
-    setChatMessages((prev) => [...prev, userMsg])
+    setChatMessages((prev) => [...prev, { role: "user", content: texto, time: now() }])
     setChatInput("")
     setIaTyping(true)
 
-    // Historial limpio para enviar a n8n (sin el campo time)
-    const historialParaN8n = [...chatMessages, userMsg].map(({ role, content }) => ({
-      role,
-      content,
-    }))
+    const result = await webhooks.chatMessage({ message: texto })
 
-    // Llama a n8n; si falla o tarda > 20s usa el fallback local
-    const respuestaN8n = await webhooks.chatLanding(formData, historialParaN8n, texto)
-
-    const respuesta =
-      respuestaN8n ??
-      IA_FALLBACK[Math.floor(Math.random() * IA_FALLBACK.length)](nombre)
-
-    setChatMessages((prev) => [...prev, { role: "ia", content: respuesta, time: now() }])
     setIaTyping(false)
+    const respuesta = result.reply ?? IA_FALLBACK[Math.floor(Math.random() * IA_FALLBACK.length)](nombre)
+    setChatMessages((prev) => [...prev, { role: "ia", content: respuesta, time: now() }])
   }
 
   const handleChatKey = (e: React.KeyboardEvent) => {
@@ -397,6 +407,20 @@ export default function LandingPage() {
             </div>
 
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {/* Returning user banner */}
+              {returningUser && !chatStarted && (
+                <div className="px-6 pt-5 pb-0">
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Bienvenido de vuelta, {returningUser.nombre}</p>
+                      <p className="text-xs text-muted-foreground">Continúa tu conversación anterior</p>
+                    </div>
+                    <Button variant="gold" size="sm" onClick={handleRetomarSesion}>
+                      Retomar
+                    </Button>
+                  </div>
+                </div>
+              )}
               {chatStarted ? (
                 /* ── CHAT WIDGET ───────────────────────────────────────── */
                 <div className="flex flex-col h-[480px]">
@@ -506,6 +530,9 @@ export default function LandingPage() {
                       placeholder="tu@email.com"
                       className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
                     />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Usa el mismo nombre y correo para retomar tu conversación en otra sesión.
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-1.5 block">Teléfono</label>
