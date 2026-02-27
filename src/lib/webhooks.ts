@@ -102,11 +102,13 @@ export const webhooks = {
   },
 
   /**
-   * Stub kept for CRM internal pages that call logActividad.
-   * No longer fires a webhook — chat history is stored by CRM_CHAT_WORKFLOW.
+   * Stubs kept for CRM internal pages (LeadsPage, CobranzaPage).
+   * These actions are now handled inside n8n via chat-message context.
    */
-  logActividad: (_accion: string, _datos: Record<string, unknown> = {}): Promise<boolean> =>
-    Promise.resolve(false),
+  logActividad:      (_accion: string, _datos: Record<string, unknown> = {}): Promise<boolean> => Promise.resolve(false),
+  generarCotizacion: (_info: { property_id?: string; email?: string }):       Promise<boolean> => Promise.resolve(false),
+  agendarVisita:     (_data: { contact_phone?: string; preferred_date?: string }): Promise<boolean> => Promise.resolve(false),
+  derivarAsesor:     (_data: { contact_phone?: string; preferred_time?: string }): Promise<boolean> => Promise.resolve(false),
 }
 
 // Track how long the visitor has been on the page
